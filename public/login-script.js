@@ -26,10 +26,20 @@ class LoginManager {
 
   async checkAuthStatus() {
     try {
+      console.log('Checking authentication status...');
       const response = await fetch("/api/auth/check");
+      console.log('Auth check response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('Auth check failed with status:', response.status);
+        return;
+      }
+      
       const data = await response.json();
+      console.log('Auth check data:', data);
 
       if (data.authenticated) {
+        console.log('User is already authenticated, redirecting...');
         // User is already logged in, redirect to calendar
         window.location.href = "/";
       }
@@ -56,6 +66,7 @@ class LoginManager {
     errorMessage.style.display = "none";
 
     try {
+      console.log('Attempting login...');
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -64,9 +75,21 @@ class LoginManager {
         body: JSON.stringify({ password }),
       });
 
+      console.log('Login response status:', response.status);
+      console.log('Login response headers:', response.headers);
+
+      if (!response.ok) {
+        console.error('Login request failed with status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
       const data = await response.json();
+      console.log('Login response data:', data);
 
       if (response.ok && data.success) {
+        console.log('Login successful!');
         // Success - show success message and redirect
         loginBtn.innerHTML = "✅ Access Granted!";
         loginBtn.style.background = "#4caf50";
@@ -75,13 +98,14 @@ class LoginManager {
           window.location.href = "/";
         }, 1000);
       } else {
+        console.error('Login failed:', data);
         // Login failed
         this.showError(data.error || "Invalid password");
         this.resetButton();
       }
     } catch (error) {
       console.error("Login error:", error);
-      this.showError("Connection error. Please try again.");
+      this.showError(`Connection error: ${error.message}. Please check the console for details.`);
       this.resetButton();
     }
   }

@@ -10,7 +10,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-deployed-app.com', 'https://your-domain.com'] // Add your actual deployment URLs
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,9 +26,11 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+      httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    }
   })
 );
 
@@ -81,21 +88,33 @@ const requireAuth = (req, res, next) => {
 // Authentication routes
 app.post("/api/auth/login", async (req, res) => {
   try {
+    console.log('Login attempt received');
     const { password } = req.body;
     const correctPassword = process.env.AUTH_PASSWORD || "mySecurePassword123";
-
+    
+    console.log('Checking password...');
     if (password === correctPassword) {
       req.session.authenticated = true;
+      console.log('Login successful');
       res.json({ success: true, message: "Login successful" });
     } else {
+      console.log('Invalid password attempt');
       res.status(401).json({ error: "Invalid password" });
     }
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/api/auth/logout", (req, res) => {
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "OK", 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});app.post("/api/auth/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).json({ error: "Could not log out" });
